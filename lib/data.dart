@@ -1,8 +1,7 @@
 import 'package:chatview/chatview.dart';
 
 class Data {
-  static const profileImage =
-      "https://raw.githubusercontent.com/SimformSolutionsPvtLtd/flutter_showcaseview/master/example/assets/simform.png";
+  static const profileImage = "assets/images/2.jpg";
   static final List<Message> messageList = [
     Message(
       id: '1',

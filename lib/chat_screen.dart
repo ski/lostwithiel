@@ -1,8 +1,10 @@
 import 'package:chatview/chatview.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'data.dart';
 import 'models/theme.dart';
+import 'signalling.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({Key? key}) : super(key: key);
@@ -12,11 +14,13 @@ class ChatScreen extends StatefulWidget {
 }
 
 class _ChatScreenState extends State<ChatScreen> {
+  final Signaling _signaling = Signaling();
+  String roomId = '';
   AppTheme theme = DarkTheme();
   bool isDarkTheme = true;
   final currentUser = ChatUser(
     id: '1',
-    name: 'Flutter',
+    name: 'Alice',
     profilePhoto: Data.profileImage,
   );
 
@@ -47,29 +51,16 @@ class _ChatScreenState extends State<ChatScreen> {
     ],
   );
 
-  void _showHideTypingIndicator() {
-    _chatController.setTypingIndicator = !_chatController.showTypingIndicator;
-  }
-
-  void _onThemeIconTap() {
-    setState(() {
-      if (isDarkTheme) {
-        theme = LightTheme();
-        isDarkTheme = false;
-      } else {
-        theme = DarkTheme();
-        isDarkTheme = true;
-      }
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: ChatView(
         chatController: _chatController,
         currentUser: currentUser,
+        onSendTap: _onSendTap,
+        chatViewStateConfig: _chatViewStateConfig(),
         chatViewState: ChatViewState.hasMessages,
+        typeIndicatorConfig: _typeIndicatorConfig(),
         appBar: _chatViewAppBar(),
         chatBackgroundConfig: _chatBackgroundConfig(),
         sendMessageConfig: _sendMessageConfig(),
@@ -81,6 +72,22 @@ class _ChatScreenState extends State<ChatScreen> {
         repliedMessageConfig: _repliedMessageConfig(),
         swipeToReplyConfig: _swipeToReplyConfig(),
       ),
+    );
+  }
+
+  TypeIndicatorConfiguration _typeIndicatorConfig() {
+    return TypeIndicatorConfiguration(
+      flashingCircleBrightColor: theme.flashingCircleBrightColor,
+      flashingCircleDarkColor: theme.flashingCircleDarkColor,
+    );
+  }
+
+  ChatViewStateConfiguration _chatViewStateConfig() {
+    return ChatViewStateConfiguration(
+      loadingWidgetConfig: ChatViewStateWidgetConfiguration(
+        loadingIndicatorColor: theme.outgoingChatBubbleColor,
+      ),
+      onReloadButtonTap: () {},
     );
   }
 
@@ -210,11 +217,11 @@ class _ChatScreenState extends State<ChatScreen> {
       textFieldBackgroundColor: theme.textFieldBackgroundColor,
       closeIconColor: theme.closeIconColor,
       textFieldConfig: TextFieldConfiguration(
-        // onMessageTyping: (status) {
-        //   /// Do with status
-        //   debugPrint(status.toString());
-        // },
-        // compositionThresholdTime: const Duration(seconds: 1),
+        onMessageTyping: (status) {
+          /// Do with status
+          debugPrint(status.toString());
+        },
+        compositionThresholdTime: const Duration(seconds: 1),
         textStyle: TextStyle(color: theme.textFieldTextColor),
       ),
       micIconColor: theme.replyMicIconColor,
@@ -250,7 +257,7 @@ class _ChatScreenState extends State<ChatScreen> {
       backGroundColor: theme.appBarColor,
       profilePicture: Data.profileImage,
       backArrowColor: theme.backArrowColor,
-      chatTitle: "Chat view",
+      chatTitle: "Serverless & Homeless",
       chatTitleTextStyle: TextStyle(
         color: theme.appBarTitleTextStyle,
         fontWeight: FontWeight.bold,
@@ -277,7 +284,75 @@ class _ChatScreenState extends State<ChatScreen> {
             color: theme.themeIconColor,
           ),
         ),
+        IconButton(
+          tooltip: 'Connect to network',
+          onPressed: _connectToSignalling,
+          icon: Icon(
+            Icons.power,
+            color: theme.themeIconColor,
+          ),
+        ),
       ],
+    );
+  }
+
+  void _onSendTap(
+    String message,
+    ReplyMessage replyMessage,
+    MessageType messageType,
+  ) {
+    final id = int.parse(Data.messageList.last.id) + 1;
+    _chatController.addMessage(
+      Message(
+        id: id.toString(),
+        createdAt: DateTime.now(),
+        message: message,
+        sendBy: currentUser.id,
+        replyMessage: replyMessage,
+        messageType: messageType,
+      ),
+    );
+    Future.delayed(const Duration(milliseconds: 300), () {
+      _chatController.initialMessageList.last.setStatus =
+          MessageStatus.undelivered;
+    });
+    Future.delayed(const Duration(seconds: 1), () {
+      _chatController.initialMessageList.last.setStatus = MessageStatus.read;
+    });
+  }
+
+  void _showHideTypingIndicator() {
+    _chatController.setTypingIndicator = !_chatController.showTypingIndicator;
+  }
+
+  void _onThemeIconTap() {
+    setState(() {
+      if (isDarkTheme) {
+        theme = LightTheme();
+        isDarkTheme = false;
+      } else {
+        theme = DarkTheme();
+        isDarkTheme = true;
+      }
+    });
+  }
+
+  void _connectToSignalling() async {
+    final id = await _signaling.createRoom();
+    setState(() {
+      roomId = id;
+    });
+
+    Clipboard.setData(
+      ClipboardData(text: 'answer@$roomId'),
+    ).then(
+      (value) => {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Presence ID Copied'),
+          ),
+        )
+      },
     );
   }
 }
