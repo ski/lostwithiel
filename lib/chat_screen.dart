@@ -12,8 +12,8 @@ class ChatScreen extends StatefulWidget {
 }
 
 class _ChatScreenState extends State<ChatScreen> {
-  AppTheme theme = LightTheme();
-  bool isDarkTheme = false;
+  AppTheme theme = DarkTheme();
+  bool isDarkTheme = true;
   final currentUser = ChatUser(
     id: '1',
     name: 'Flutter',
@@ -48,7 +48,7 @@ class _ChatScreenState extends State<ChatScreen> {
   );
 
   void _showHideTypingIndicator() {
-    //_chatController.setTypingIndicator = !_chatController.showTypingIndicator;
+    _chatController.setTypingIndicator = !_chatController.showTypingIndicator;
   }
 
   void _onThemeIconTap() {
