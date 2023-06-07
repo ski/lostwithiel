@@ -1,6 +1,6 @@
 # Lostwithiel
 
-Lostwithiel in South Cornwall is an ancient stannary town, home to the impressive circular Restormel Castle and medieval history.
+Lostwithiel in South Cornwall is an ancient stannary town, home to the impressive circular Restormel Castle and medieval history. Find a wonderful video about the place here [WALK CORNWALL - Lostwithiel to Restormel Castle](https://www.youtube.com/watch?v=ESZnqSGZ6A0&ab_channel=CornishWalkingTrails)
 
 ## Getting Started
 
