@@ -1,6 +1,9 @@
+import 'dart:convert';
+
 import 'package:chatview/chatview.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:lostwithiel/models/activity.dart';
 
 import 'data.dart';
 import 'models/theme.dart';
@@ -14,13 +17,24 @@ class ChatScreen extends StatefulWidget {
 }
 
 class _ChatScreenState extends State<ChatScreen> {
-  final Signaling _signaling = Signaling();
+  @override
+  void initState() {
+    _signaling = Signaling(
+      onConnectedStatusChanged: _onConnected,
+      onMessageReceived: _onMessageReceived,
+    );
+    super.initState();
+  }
+
+  Signaling? _signaling;
   String roomId = '';
   AppTheme theme = DarkTheme();
   bool isDarkTheme = true;
+  bool isConnected = false;
+
   final currentUser = ChatUser(
     id: '1',
-    name: 'Alice',
+    name: 'Bob',
     profilePhoto: Data.profileImage,
   );
 
@@ -40,7 +54,7 @@ class _ChatScreenState extends State<ChatScreen> {
       ),
       ChatUser(
         id: '4',
-        name: 'Mike',
+        name: 'Alice B. Goode',
         profilePhoto: Data.profileImage,
       ),
       ChatUser(
@@ -219,7 +233,7 @@ class _ChatScreenState extends State<ChatScreen> {
       textFieldConfig: TextFieldConfiguration(
         onMessageTyping: (status) {
           /// Do with status
-          debugPrint(status.toString());
+          //debugPrint(status.toString());
         },
         compositionThresholdTime: const Duration(seconds: 1),
         textStyle: TextStyle(color: theme.textFieldTextColor),
@@ -286,7 +300,7 @@ class _ChatScreenState extends State<ChatScreen> {
         ),
         IconButton(
           tooltip: 'Connect to network',
-          onPressed: _connectToSignalling,
+          onPressed: _makeOffer,
           icon: Icon(
             Icons.power,
             color: theme.themeIconColor,
@@ -301,17 +315,27 @@ class _ChatScreenState extends State<ChatScreen> {
     ReplyMessage replyMessage,
     MessageType messageType,
   ) {
-    final id = int.parse(Data.messageList.last.id) + 1;
-    _chatController.addMessage(
-      Message(
+    if (message.split('@').length > 1) _makeAnwer(message);
+    if (isConnected) {
+      final id = int.parse(Data.messageList.last.id) + 1;
+      final msg = Message(
         id: id.toString(),
         createdAt: DateTime.now(),
         message: message,
         sendBy: currentUser.id,
         replyMessage: replyMessage,
         messageType: messageType,
-      ),
-    );
+      );
+      _chatController.addMessage(msg);
+      //TODO: refactor this smell
+      final payload = Payload(
+        message: message,
+        sendBy: _chatController.chatUsers[2].id,
+      );
+      final jsonPayload = jsonEncode(payload);
+      _signaling?.sendMessage(jsonPayload);
+    }
+
     Future.delayed(const Duration(milliseconds: 300), () {
       _chatController.initialMessageList.last.setStatus =
           MessageStatus.undelivered;
@@ -337,10 +361,10 @@ class _ChatScreenState extends State<ChatScreen> {
     });
   }
 
-  void _connectToSignalling() async {
-    final id = await _signaling.createRoom();
+  void _makeOffer() async {
+    final id = await _signaling?.createRoom();
     setState(() {
-      roomId = id;
+      roomId = id!;
     });
 
     Clipboard.setData(
@@ -354,5 +378,27 @@ class _ChatScreenState extends State<ChatScreen> {
         )
       },
     );
+  }
+
+  void _makeAnwer(String id) async {
+    final String peer = id.split('@')[1];
+    _signaling?.joinRoom(peer);
+  }
+
+  void _onConnected() {
+    setState(() {
+      isConnected = true;
+    });
+  }
+
+  void _onMessageReceived(Payload payload) {
+    final id = int.parse(Data.messageList.last.id) + 1;
+    final msg = Message(
+      id: id.toString(),
+      createdAt: DateTime.now(),
+      message: payload.message,
+      sendBy: payload.sendBy,
+    );
+    _chatController.addMessage(msg);
   }
 }

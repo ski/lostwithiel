@@ -5,41 +5,47 @@ import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
+import 'package:lostwithiel/models/activity.dart';
 
 enum RTCIceTransportPolicy {
   all,
   relay,
 }
 
-class Signaling {
-  Map<String, dynamic> configuration = {
-    "sdpSemantics": "plan-b", // plan-b unified-plan Add this line
-    "iceServers": [
-      {
-        "urls": "turn:turn.isense.bio",
-        "username": "1686149936:alice",
-        "credential": "xZIWjuPFSI1t6hAus2Dqg4fQZtQ="
-      },
-      //{"url": "stun:stun.l.google.com:19302"},
-      // {"url": "stun:global.stun.twilio.com:3478"},
-      // {"url": "stun:stun1.l.google.com:19302"},
-      // {"url": "stun:stun2.l.google.com:19302"},
-      // {"url": "stun:stun3.l.google.com:19302"},
-      // {"url": "stun:stun4.l.google.com:19302"},
-    ],
-    "bundlePolicy": "balanced",
-    "encodedInsertableStreams": false,
-    "iceCandidatePoolSize": 1,
-    //'iceCandidatePoolSize': 1,
-  };
+typedef ConnectionStatusCallback = void Function();
+typedef MessageReceivedCallback = void Function(Payload payload);
 
-  final Map<String, dynamic> offerSdpConstraints = {
-    "mandatory": {
-      "OfferToReceiveAudio": false,
-      "OfferToReceiveVideo": false,
+final Map<String, dynamic> configuration = {
+  "sdpSemantics": "unified-plan", // plan-b unified-plan Add this line
+  "iceServers": [
+    {
+      "urls": "turn:turn.isense.bio?transport=udp",
+      "username": "alice",
+      "credential": "xZIWjuPFSI1t6hAus2Dqg4fQZtQ="
     },
-    "optional": [],
-  };
+  ],
+  "bundlePolicy": "balanced",
+  "encodedInsertableStreams": false,
+  "iceCandidatePoolSize": 1,
+};
+
+final Map<String, dynamic> offerSdpConstraints = {
+  "mandatory": {
+    "OfferToReceiveAudio": false,
+    "OfferToReceiveVideo": false,
+  },
+  "optional": [],
+};
+
+class Signaling {
+  final ConnectionStatusCallback? onConnectedStatusChanged;
+  final MessageReceivedCallback? onMessageReceived;
+
+  Signaling({
+    Key? key,
+    required this.onConnectedStatusChanged,
+    required this.onMessageReceived,
+  });
 
   RTCPeerConnection? _pc;
   String? roomId;
@@ -47,18 +53,20 @@ class Signaling {
   RTCDataChannel? _dataChannel;
 
   _createDataChanel() async {
-    final chanInit = RTCDataChannelInit()..id = 1;
+    final chanInit = RTCDataChannelInit();
     // ..negotiated = true
-    // ..maxRetransmits = 30;
+    // ..maxRetransmits = 30
+    // ..id = 1;
 
     _dataChannel = await _pc!.createDataChannel('serverless', chanInit);
-
     _dataChannel?.onDataChannelState = (RTCDataChannelState channelState) {
-      print('data channel connection state $channelState');
+      print('OFFER DCC state $channelState');
+      onConnectedStatusChanged!();
     };
 
     _dataChannel!.onMessage = (data) {
-      print(data.toString());
+      final Payload payload = Payload.fromJson(jsonDecode(data.text) as String);
+      onMessageReceived!(payload);
     };
   }
 
@@ -67,10 +75,13 @@ class Signaling {
       print('subscribed');
       _dataChannel = channel;
       _dataChannel?.onDataChannelState = (RTCDataChannelState channelState) {
-        print('data channel connection state $channelState');
+        print('ANSWER DCC state $channelState');
+        onConnectedStatusChanged!();
       };
       _dataChannel!.onMessage = (data) {
-        print(data.toString());
+        final Payload payload =
+            Payload.fromJson(jsonDecode(data.text) as String);
+        onMessageReceived!(payload);
       };
     };
   }
@@ -116,6 +127,7 @@ class Signaling {
 
     await roomRef.set(roomWithOffer);
     var roomId = roomRef.id;
+
     print('New room created with offer. Room ID: $roomId');
 
     // Listening for remote session description below
@@ -126,9 +138,7 @@ class Signaling {
           data['answer']['sdp'],
           data['answer']['type'],
         );
-
         var json = jsonEncode(answer.sdp.toString());
-
         print("Someone tried to connect $json");
         await _pc?.setRemoteDescription(answer);
       }
@@ -238,5 +248,14 @@ class Signaling {
     _pc?.onAddStream = (MediaStream stream) {
       print("Add remote stream");
     };
+  }
+
+  void sendMessage(String message) {
+    //https://github.com/flutter-webrtc/flutter-webrtc-demo/blob/master/lib/src/call_sample/data_channel_sample.dart
+    // String text =
+    //     'Say hello ' + timer.tick.toString() + ' times, from [$_selfId]';
+    // _dataChannel
+    //     ?.send(RTCDataChannelMessage.fromBinary(Uint8List(timer.tick + 1)));
+    _dataChannel?.send(RTCDataChannelMessage(message));
   }
 }

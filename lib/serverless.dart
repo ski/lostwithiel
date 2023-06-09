@@ -11,6 +11,7 @@ import 'package:lostwithiel/signalling.dart';
 import 'package:sdp_transform/sdp_transform.dart';
 
 import 'chat_screen.dart';
+import 'models/activity.dart';
 
 final ButtonStyle flatButtonStyle = TextButton.styleFrom(
   foregroundColor: Colors.black87,
@@ -44,7 +45,10 @@ class _ServerlessState extends State<Serverless> {
   bool _waiting = false;
   RTCDataChannel? _dataChannel;
   FirebaseFirestore? firestore;
-  final Signaling _signaling = Signaling();
+  final Signaling _signaling = Signaling(
+    onConnectedStatusChanged: () {},
+    onMessageReceived: (Payload payload) {},
+  );
   TextEditingController textEditingController = TextEditingController(text: '');
   String _roomId = '';
 
